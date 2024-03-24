@@ -1,0 +1,71 @@
+ Loading file: film_category.csv
+Done writing file
+
+Loading file: country.csv
+Done writing file
+
+Loading file: address.csv
+Done writing file
+
+Loading file: city.csv
+Done writing file
+
+Loading file: film_actor.csv
+Done writing file
+
+Loading file: language.csv
+Done writing file
+
+Loading file: staff.csv
+Done writing file
+
+Loading file: film.csv
+Done writing file
+
+Loading file: store.csv
+Done writing file
+
+Loading file: inventory.csv
+Done writing file
+
+Loading file: rental.csv
+Done writing file
+
+Loading file: actor.csv
+Done writing file
+
+Loading file: payment.csv
+Done writing file
+
+Loading file: category.csv
+Done writing file
+
+Loading file: customer.csv
+Done writing file
+
+Done loading files
+
+Creating index on actor_id...
+
+[+] Parsed SQL: 
+	SELECT *
+FROM `ACTOR`
+WHERE `FIRST_NAME` = 'Nick'
+
+[+] Validated SQL: 
+\SELECT `actor`.`actor_id`, `actor`.`first_name`, `actor`.`last_name`, `actor`.`last_update`
+"FROM `FILM_DB`.`actor` AS `ACTOR`
+$WHERE `actor`.`first_name` = 'Nick'
+
+[+] Converted SQL: 
+=rel#4:LogicalProject.NONE(input=LogicalFilter#2,inputs=0..3)
+
+[+] Physical SQL: 
+PIndexScan
+
+[+] Evaluating physical SQL
+'Evaluating PIndexScan for table: actor
+(2 Nick Wahlberg 2013-05-26 14:47:57.62 
+)44 Nick Stallone 2013-05-26 14:47:57.62 
++166 Nick Degeneres 2013-05-26 14:47:57.62 
+)priting the number of relevant records 3
