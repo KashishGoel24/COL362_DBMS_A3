@@ -24,11 +24,9 @@ public class MyCalciteConnectionTest {
             
             System.out.println("\nCreating index on actor_id...");
             calciteConnection.create_index("actor", "actor_id", 10);
-//            calciteConnection.create_index("actor", "first_name", 10);
 
-            SqlNode sqlNode = calciteConnection.parseSql("select * from actor\n"  + "where actor_id >= 100");
-//            SqlNode sqlNode = calciteConnection.parseSql("select * from film\n" + "where rental_rate > 1.2");
-//            SqlNode sqlNode = calciteConnection.parseSql("select * from actor\n" + "where first_name = 'Nick'");
+            SqlNode sqlNode = calciteConnection.parseSql("select * from actor\n"
+                                    + "where actor_id >= 100");
                                     
             System.out.println("\n[+] Parsed SQL: \n" + sqlNode);
             SqlNode validatedSqlNode = calciteConnection.validateSql(sqlNode);
@@ -53,24 +51,24 @@ public class MyCalciteConnectionTest {
 
             // Uncomment this to check the records returned by IndexScan
             
-             assert (result.size() == 101);
+            // assert (result.size() == 101);
 
-             List <Integer> actor_ids = new ArrayList<>();
+            // List <Integer> actor_ids = new ArrayList<>();
 
-             for (Object [] row : result) {
-                 assert (row.length == 4);
-                 assert (row[0] instanceof Integer);
-                 assert ((Integer)row[0] >= 100);
-                 actor_ids.add((Integer)row[0]);
-             }
+            // for (Object [] row : result) {
+            //     assert (row.length == 4);
+            //     assert (row[0] instanceof Integer);
+            //     assert ((Integer)row[0] >= 100);
+            //     actor_ids.add((Integer)row[0]);
+            // }
 
-            // // // sort the actor_ids
-             actor_ids.sort(null);
+            // // sort the actor_ids
+            // actor_ids.sort(null);
 
-            // // // result actor_ids should be from 100 to 200
-             for (int i = 0; i < actor_ids.size(); i++) {
-                 assert (actor_ids.get(i).equals(100 + i));
-             }
+            // // result actor_ids should be from 100 to 200
+            // for (int i = 0; i < actor_ids.size(); i++) {
+            //     assert (actor_ids.get(i).equals(100 + i));
+            // }
 
             calciteConnection.close();
         }

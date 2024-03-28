@@ -1,0 +1,1921 @@
+diff --git a/in/ac/iitd/src/main/java/index/bplusTree/BPlusTreeIndexFile.java b/in/ac/iitd/src/main/java/index/bplusTree/BPlusTreeIndexFile.java
+index 4d23ef0..aae86b2 100644
+--- a/in/ac/iitd/src/main/java/index/bplusTree/BPlusTreeIndexFile.java
++++ b/in/ac/iitd/src/main/java/index/bplusTree/BPlusTreeIndexFile.java
+@@ -6,6 +6,8 @@ import java.util.Queue;
+ 
+ import java.util.ArrayList;
+ import java.util.LinkedList;
++import java.util.Stack;
++import java.util.Arrays;
+ 
+ /*
+     * Tree is a collection of BlockNodes
+@@ -69,10 +71,378 @@ public class BPlusTreeIndexFile<T> extends AbstractFile<BlockNode> {
+         return isLeaf(blocks.get(id));
+     }
+ 
++    private byte[] convertintToBytes( int number){
++
++        /* Write your code here */
++        byte[] answer = new byte[2];
++        answer[0] = (byte) ((number >> 8) & 0xFF);
++        answer[1] = (byte) (number & 0xFF);
++
++        return answer;
++    }
++
++    private int convertBytesToint( byte[] byte_array){
++
++        /* Write your code here */
++        int ans;
++        if (byte_array.length == 2){
++            ans = ((byte_array[0] << 8) | (byte_array[1] & 0xFF));
++        }
++        else{
++            ans = ((byte_array[0] & 0xFF) << 24) | ((byte_array[1] & 0xFF) << 16) | ((byte_array[2] & 0xFF) << 8) | (byte_array[3] & 0xFF);
++        }
++
++        return ans;
++    }
++
++    private T convertBytesToT(byte[] bytes, Class<T> typeClass) {
++        if (typeClass == String.class) {
++            return (T) new String(bytes); // Assume bytes represent UTF-8 encoded string
++        } else if (typeClass == Integer.class) {
++            // return (T) Integer.valueOf(convertBytesToInt(bytes));
++            int value = convertBytesToint(bytes);
++            return typeClass.cast(value);
++        } else if (typeClass == Boolean.class) {
++            return (T) Boolean.valueOf(bytes[0] != 0);
++        } else if (typeClass == Float.class) {
++            return (T) Float.valueOf(Float.intBitsToFloat(convertBytesToint(bytes)));
++        } else if (typeClass == Double.class) {
++            return (T) Double.valueOf(Double.longBitsToDouble(convertBytesToLong(bytes)));
++        } else {
++            // Handle unsupported type
++            return null;
++        }
++    }
++
++    private byte[] convertTToBytes(T typeClassObject) {
++        if (typeClassObject instanceof String) {
++            return ((String) typeClassObject).getBytes(); // Assume UTF-8 encoding
++        } else if (typeClassObject instanceof Integer) {
++            return convertIntToBytes((Integer) typeClassObject);
++        } else if (typeClassObject instanceof Boolean) {
++            return new byte[] { (byte) (((Boolean) typeClassObject) ? 1 : 0) };
++        } else if (typeClassObject instanceof Float) {
++            return convertIntToBytes(Float.floatToIntBits((Float) typeClassObject));
++        } else if (typeClassObject instanceof Double) {
++            return convertLongToBytes(Double.doubleToLongBits((Double) typeClassObject));
++        } else {
++            // Handle unsupported type
++            return null;
++        }
++    }
++
++    private byte[] convertIntToBytes(int number) {
++        byte[] bytes = new byte[4];
++        bytes[0] = (byte) (number >> 24);
++        bytes[1] = (byte) (number >> 16);
++        bytes[2] = (byte) (number >> 8);
++        bytes[3] = (byte) number;
++        return bytes;
++    }
++
++    private byte[] convertLongToBytes(long number) {
++        byte[] bytes = new byte[8];
++        for (int i = 0; i < 8; i++) {
++            bytes[i] = (byte) (number >> (56 - (i * 8)));
++        }
++        return bytes;
++    }
++
++    private long convertBytesToLong(byte[] byteArray) {
++        return ((long) (byteArray[0] & 0xFF) << 56) | ((long) (byteArray[1] & 0xFF) << 48) | ((long) (byteArray[2] & 0xFF) << 40)
++                | ((long) (byteArray[3] & 0xFF) << 32) | ((long) (byteArray[4] & 0xFF) << 24) | ((long) (byteArray[5] & 0xFF) << 16)
++                | ((long) (byteArray[6] & 0xFF) << 8) | (byteArray[7] & 0xFF);
++    }
++
++    private boolean compare_greaterThanEqualTo(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 >= (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) >= ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 >= (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) >= 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 >= (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
++    private boolean compare_greaterThan(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 > (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) > ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 > (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) >= 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 > (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
++    private boolean compare_equalto(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 == (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) == ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 == (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) == 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 == (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
+     // will be evaluated
+     public void insert(T key, int block_id) {
++        // add a root node case
++        if (blocks.size() == 2){
++            // System.out.println("went here 1");
++            LeafNode<T> node ;
++            node = (LeafNode<T>) blocks.get(getRootId());
++            if (node.getNumKeys() < this.getOrder()-1){
++                node.insert(key,block_id);
++            }
++            else{
++                
++                // LeafNode<T> newNode1 = new LeafNode<>(typeClass);  // see if the argument of leaf node here is fine
++                // T[] keysRoot = node.getKeys();
++                // T[] keysRoot2 = Arrays.copyOf(keysRoot, keysRoot.length + 1);
++                // int insertIndex = keysRoot.length;
++                // keysRoot2[insertIndex] = key;
++                // Arrays.sort(keysRoot2);
++                // int[] blockIdsRoot = node.getBlockIds();
++
++                LeafNode<T> newNode1 = new LeafNode<>(typeClass);  // see if the argument of leaf node here is fine
++                T[] keysRoot = node.getKeys();
++                int[] blockIdsRoot = node.getBlockIds();
++
++                T[] keysRoot2 = (T[]) new Object[keysRoot.length + 1];
++                int[] blockIdsRoot2 = new int[keysRoot.length + 1];
++                int m = 0, ins = 0;
++                
++                for (int l = 0 ; l < (keysRoot.length + 1) ; l++){
++                    if ((m >= keysRoot.length) || (compare_greaterThan(keysRoot[m], key) && (ins == 0) && (m == 0 || compare_greaterThanEqualTo(key, keysRoot[m-1])))){
++                        keysRoot2[l] = key;
++                        blockIdsRoot2[l] = block_id;
++                        ins = 1;
++                    }
++                    else{
++                        keysRoot2[l] = keysRoot[m];
++                        blockIdsRoot2[l] = blockIdsRoot[m];
++                        m += 1;
++                    }
++                }
++                
++                // boolean done = false;
++                // int jjj = (int) Math.floor((this.getOrder())/ 2.0);
++                for (int i = (int) Math.floor((this.getOrder())/ 2.0) ; i < this.getOrder() ; i++){
++                    // if ((jjj >= this.getOrder()-1)||(compare_equalto((keysRoot2[i]), key) && !done)){
++                    //     newNode1.insert(keysRoot2[i],block_id);
++                    //     done = true;}
++                    // else{
++                    //     newNode1.insert(keysRoot2[i],blockIdsRoot[jjj]);
++                    //     jjj += 1;
++                    // }
++                    newNode1.insert(keysRoot2[i],blockIdsRoot2[i]);
++                }
++                // setting the new numkeys of the original leaf node to 0
++                node.write_data(0,convertintToBytes((0)));
++                // int kk = 0;
++                for (int i = 0 ; i < (int) Math.floor((this.getOrder())/ 2.0) ; i++){
++                    // if (compare_equalto((keysRoot2[i]), key) && !done){
++                    //     node.insert(keysRoot2[i],block_id);
++                    //     done = true;}
++                    // else{
++                    //     node.insert(keysRoot2[i],blockIdsRoot[kk]);
++                    //     kk += 1;
++                    // }
++                    node.insert(keysRoot2[i],blockIdsRoot2[i]);
++                }
++
++                // setting the next node id of the original node
++                node.write_data(4,convertintToBytes(blocks.size()));
++                // setting the prev node id of the newly made node
++                newNode1.write_data(2,convertintToBytes(1));
++                
++                // System.out.println("went here 2");
++                // System.out.println("print the length do newndooe1.get keys " + newNode1.getKeys()[0]);
++                InternalNode<T> newRootNode = new InternalNode<>(newNode1.getKeys()[0], this.getRootId(), blocks.size(), this.typeClass);
++                blocks.add(newNode1);
++                blocks.add(newRootNode);
++                blocks.get(0).write_data(2,convertintToBytes(3));
++            }
++
++            return;
++
++        }
++        // System.out.println("went here 3");
++        InternalNode<T> node1 ;
++        int nextNode = getRootId();
++        Stack<Integer> stack = new Stack<>();
++        stack.push(this.getRootId());
++
++        while (!isLeaf(nextNode)){
++            node1 = (InternalNode<T>) blocks.get(nextNode);
++            nextNode = node1.search(key);
++            stack.push(nextNode);
++        }
++
++        // int prevLeafNodeId = convertBytesToint(blocks.get(nextNode).get_data(2,2));
++        // while (prevLeafNodeId != -1){
++            //     LeafNode<T> node_search = (LeafNode<T>) blocks.get(prevLeafNodeId);
++            //     if (node_search.search(key) == 1){
++                //         nextNode = prevLeafNodeId;
++                //         prevLeafNodeId = convertBytesToint(blocks.get(nextNode).get_data(2,2));
++                //     }
++        //     else{break;}
++        // }
++        // stack.pop();
++        // stack.push(nextNode);
++
++
++        LeafNode<T> node ;
++        node = (LeafNode<T>) blocks.get(nextNode);
++
++        if (node.getNumKeys() < this.getOrder()-1){node.insert(key,block_id);}
++        else{
++            // System.out.println("went here 5");
++            int currentleaf = stack.pop();   // popping the block id of the leaf node that waas stored
++
++            LeafNode<T> newNode1 = new LeafNode<>(typeClass);  // see if the argument of leaf node here is fine
++            T[] keysRoot = node.getKeys();
++            int[] blockIdsRoot = node.getBlockIds();
++
++            T[] keysRoot2 = (T[]) new Object[keysRoot.length + 1];
++            int[] blockIdsRoot2 = new int[keysRoot.length + 1];
++            int m = 0, inserted = 0;
++            for (int l = 0 ; l < (keysRoot.length + 1) ; l++){
++                if ((m >= keysRoot.length) || (compare_greaterThan(keysRoot[m], key) && (inserted == 0) && (m == 0 || compare_greaterThanEqualTo(key, keysRoot[m-1])))){
++                    keysRoot2[l] = key;
++                    blockIdsRoot2[l] = block_id;
++                    inserted = 1;
++                }
++                else{
++                    keysRoot2[l] = keysRoot[m];
++                    blockIdsRoot2[l] = blockIdsRoot[m];
++                    m += 1;
++                }
++            }
++            // System.out.println("went here 6");
++
++            for (int i = (int) Math.floor((this.getOrder())/ 2.0) ; i < this.getOrder() ; i++){
++                newNode1.insert(keysRoot2[i],blockIdsRoot2[i]);
++            }
++
++            node.write_data(0,convertintToBytes(0));
++
++            for (int i = 0 ; i < (int) Math.floor((this.getOrder())/ 2.0) ; i++){
++                node.insert(keysRoot2[i],blockIdsRoot2[i]);
++            }
++
++            // setting the prev node id of the next node of the original non split node AND setting the next node id of the newl made node
++            if (convertBytesToint(node.get_data(4, 2)) != -1){
++                byte[] add1 = convertintToBytes(blocks.size());
++                blocks.get(convertBytesToint(node.get_data(4, 2))).write_data(2, add1);
++                byte[] add2 = node.get_data(4,2);
++                newNode1.write_data(4,add2);
++            }
++
++            // setting the next node id of the original node
++            byte[] nodeIdOfNextleafndoe = convertintToBytes(blocks.size());
++            node.write_data(4,nodeIdOfNextleafndoe);
++
++            // setting the prev node id of the newly made node
++            byte[] nodeIdOfNextleafndoe2 = convertintToBytes(currentleaf);
++            newNode1.write_data(2,nodeIdOfNextleafndoe2);
++
++            int parent_node_id = stack.pop();
++            int prev_parent_node_id = currentleaf;
++
++            // int keytoWrite = convertBytesToint(convertTToBytes(newNode1.getKeys()[0]));
++            T keytoWrite = newNode1.getKeys()[0];
++            int blockIdtoWrite = blocks.size();
++            blocks.add(newNode1);
++
++            boolean flag = false;
++
++            // System.out.println("went here 7");
++
++            while (isFull(parent_node_id)){
++
++                // System.out.println("went here 8");
++
++                InternalNode<T>  parent_node1 = (InternalNode<T>) blocks.get(parent_node_id);
++                InternalNode<T> internalNewNode1 = new InternalNode<T>(keytoWrite,0,blockIdtoWrite,this.typeClass);
++                T[] keysinternal = parent_node1.getKeys();
++                T[] keysInternal2 = (T[]) new Object[getOrder()];
++                int[] blocksIdsInternal = parent_node1.getChildren();
++                int[] blocksIdsInternal2 = new int[getOrder() + 1];
++                blocksIdsInternal2[0] = blocksIdsInternal[0];
++                int j = 0, inserted1 = 0;
++
++                for (int i = 0 ; i < getOrder() ; i++){
++                    if ((j > this.getOrder()-2) || ((blocksIdsInternal[j] == prev_parent_node_id) && (compare_greaterThanEqualTo(keysinternal[j], keytoWrite) && (inserted1 == 0)))){
++                        keysInternal2[i] = keytoWrite;
++                        blocksIdsInternal2[i+1] = blockIdtoWrite;
++                        inserted1 = 1;
++                    }
++                    else{
++                        keysInternal2[i] = keysinternal[j];
++                        blocksIdsInternal2[i+1] = blocksIdsInternal[j+1];
++                        j += 1;
++                    }
++                }
++
++                int index_to_move_up = (int) (Math.floor((this.getOrder())/ 2.0));
++                int first_index_for_second_parent = (int) (Math.floor((this.getOrder())/ 2.0)+1);
++                internalNewNode1.write_data(4,convertintToBytes(blocksIdsInternal2[first_index_for_second_parent]));
++                internalNewNode1.write_data(0,convertintToBytes(0));
++
++                for (int i = first_index_for_second_parent ; i < this.getOrder() ; i++){
++                    internalNewNode1.insert(keysInternal2[i],blocksIdsInternal2[i+1]);
++                }
++
++                parent_node1.write_data(0,convertintToBytes(0));
++
++                for (int i = 0 ; i < index_to_move_up ; i++){
++                    parent_node1.insert(keysInternal2[i],blocksIdsInternal2[i+1]);
++                }
++
++                keytoWrite = (keysInternal2[index_to_move_up]);
++                blockIdtoWrite = blocks.size();
++                blocks.add(internalNewNode1);
++
++                if (stack.isEmpty()){
++                    InternalNode<T> newrootnode = new InternalNode<>(keytoWrite,parent_node_id,blockIdtoWrite,this.typeClass);
++
++                    blocks.get(0).write_data(2,convertintToBytes(blocks.size()));
++                    blocks.add(newrootnode);
++                    flag = true;
++                    break;
++                }
++                else{
++                    prev_parent_node_id = parent_node_id;
++                    parent_node_id = stack.pop();
++                }
++            }
++            // this is wrong
++            if (!stack.isEmpty() || (!flag)){
++                // System.out.println("went here 9");
++                InternalNode<T>  parent_node11 = (InternalNode<T>) blocks.get(parent_node_id);
++                parent_node11.insert(keytoWrite, blockIdtoWrite);
++            }
++        }
+ 
+-        /* Write your code here */
+         return;
+     }
+ 
+@@ -81,7 +451,55 @@ public class BPlusTreeIndexFile<T> extends AbstractFile<BlockNode> {
+     public int search(T key) {
+ 
+         /* Write your code here */
+-        return -1;
++        // System.out.println("have come to searhc key: " + key);
++        if (blocks.size() == 2){
++            // System.out.println("in here 1");
++            LeafNode<T> node ;
++            node = (LeafNode<T>) blocks.get(getRootId());
++            int ans = node.search(key);
++            return ans;
++        }
++        // System.out.println("in here 2");
++        InternalNode<T> node1 ;
++        int nextNode = getRootId();
++        while (!isLeaf(nextNode)){
++            node1 = (InternalNode<T>) blocks.get(nextNode);
++            nextNode = node1.search(key);
++        }
++
++        int prevLeafNodeId = convertBytesToint(blocks.get(nextNode).get_data(2,2));
++        while (prevLeafNodeId != -1){
++            LeafNode<T> node_search = (LeafNode<T>) blocks.get(prevLeafNodeId);
++            if (node_search.search(key) == 1){
++                nextNode = prevLeafNodeId;
++                prevLeafNodeId = convertBytesToint(blocks.get(nextNode).get_data(2,2));
++            }
++            else{break;}
++        }
++
++        LeafNode<T> node ;
++        node = (LeafNode<T>) blocks.get(nextNode);
++
++        if (node.search(key) == 1){
++            return nextNode;
++        }
++        else{
++            boolean found = false;
++            byte[] nextNode2bytes = node.get_data(4,2);
++            int nextNode2 = (nextNode2bytes[0] << 8) | (nextNode2bytes[1] & 0xFF);
++            while ((!found) && (nextNode2 != -1)){
++                nextNode2bytes = node.get_data(4,2);
++                int nextNode22 = (nextNode2bytes[0] << 8) | (nextNode2bytes[1] & 0xFF);
++                node = (LeafNode<T>) blocks.get(nextNode22);
++                if (node.search(key) == 1){
++                    found = true;
++                }
++            }
++            if (found){
++                return nextNode2;
++            }
++            return -1;
++        }
+     }
+ 
+     // returns true if the key was found and deleted, false otherwise
+@@ -146,4 +564,4 @@ public class BPlusTreeIndexFile<T> extends AbstractFile<BlockNode> {
+         return;
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/in/ac/iitd/src/main/java/index/bplusTree/InternalNode.java b/in/ac/iitd/src/main/java/index/bplusTree/InternalNode.java
+index 2217aec..12e6514 100644
+--- a/in/ac/iitd/src/main/java/index/bplusTree/InternalNode.java
++++ b/in/ac/iitd/src/main/java/index/bplusTree/InternalNode.java
+@@ -29,6 +29,8 @@ public class InternalNode<T> extends BlockNode implements TreeNode<T> {
+ 
+         this.write_data(4, child_1);
+ 
++        // System.out.println("printntttttt " + convertBytesToint(this.get_data(4,2)));
++
+         byte[] nextFreeOffsetBytes = new byte[2];
+         nextFreeOffsetBytes[0] = 0;
+         nextFreeOffsetBytes[1] = 6;
+@@ -40,6 +42,54 @@ public class InternalNode<T> extends BlockNode implements TreeNode<T> {
+         return;
+     }
+ 
++    private boolean compare_greaterThanEqualTo(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 >= (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) >= ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 >= (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) >= 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 >= (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
++    private boolean compare_greaterThan(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 > (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) > ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 > (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) >= 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 > (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
++    private boolean compare_equalto(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 == (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) == ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 == (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) == 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 == (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
+     // returns the keys in the node - will be evaluated
+     @Override
+     public T[] getKeys() {
+@@ -48,6 +98,14 @@ public class InternalNode<T> extends BlockNode implements TreeNode<T> {
+         T[] keys = (T[]) new Object[numKeys];
+ 
+         /* Write your code here */
++        int cur_start_index = 6;
++        for (int i = 0; i < numKeys ; i++){
++            byte[] lenKeyBytes = this.get_data(cur_start_index,2);
++            int len_key = (lenKeyBytes[0] << 8) | (lenKeyBytes[1] & 0xFF);
++            byte[] keys_object = this.get_data(cur_start_index+2,len_key);
++            keys[i] = convertBytesToT(keys_object,this.typeClass);          // change needed -> correct this
++            cur_start_index += (4 + len_key);
++        }
+ 
+         return keys;
+     }
+@@ -55,29 +113,115 @@ public class InternalNode<T> extends BlockNode implements TreeNode<T> {
+     // can be used as helper function - won't be evaluated
+     @Override
+     public void insert(T key, int right_block_id) {
+-        /* Write your code here */
+ 
+-    }
++        // System.out.println(" dsjvdvdjkvdv");
++        // if (convertBytesToint((convertTToBytes(key))) == -1 && right_block_id == -1){return;}
++        byte[] ourKey1 = convertTToBytes(key);
++        byte[] blockIdBytes = convertintToBytes(right_block_id);
++        int lenkeyour = ourKey1.length;
++        byte[] ourlenKey = convertintToBytes(lenkeyour);
++
++        T[] keys = this.getKeys();
++        int numKeys = getNumKeys();
++        int[] childrenArray = this.getChildren();
++        int cur_start_index = 6;
++        int start = 0;
++        for (int i = 0 ; i < numKeys ; i++){
++            if ((compare_greaterThan(keys[i], key)) && ((i == 0) || compare_greaterThanEqualTo(key,keys[i-1]))){
++                start = i; break;
++            }
++            byte[] lenKeyBytes = this.get_data(cur_start_index,2);
++            int len_key = (lenKeyBytes[0] << 8) | (lenKeyBytes[1] & 0xFF);
++            cur_start_index += (4 + len_key);
++            if (i == numKeys - 1){start = i+1;}
++        }
++        this.write_data(cur_start_index+2+lenkeyour,blockIdBytes);
++        this.write_data(cur_start_index,ourlenKey);
++        this.write_data(cur_start_index+2,ourKey1);
++        cur_start_index += (4+lenkeyour);
++        while (start < numKeys){
++            byte[] keyByteElement = convertTToBytes(keys[start]);
++            byte[] blockIdElement = convertintToBytes(childrenArray[start+1]);
++            byte[] lenKeyElement = convertintToBytes(keyByteElement.length);
++            this.write_data(cur_start_index+2+convertBytesToint(lenKeyElement),blockIdElement);
++            this.write_data(cur_start_index,lenKeyElement);
++            this.write_data(cur_start_index+2,keyByteElement);
++            cur_start_index += (4 + keyByteElement.length);
++            start += 1;
++        }
++
++        byte[] newNumKeys = convertintToBytes(numKeys+1);
++        this.write_data(0,newNumKeys);
++
++
++        // cur_start_index -= 2;        // see this that next free offset will be from the length index itself
++        byte[] newNextFreeOffset = convertintToBytes((cur_start_index)) ; // make this usig cur start index
++        this.write_data(2,newNextFreeOffset);
++
++        return;
+ 
+-    // can be used as helper function - won't be evaluated
+-    @Override
+-    public int search(T key) {
+-        /* Write your code here */
+-        return -1;
+     }
+ 
++
+     // should return the block_ids of the children - will be evaluated
+     public int[] getChildren() {
+ 
+         byte[] numKeysBytes = this.get_data(0, 2);
+         int numKeys = (numKeysBytes[0] << 8) | (numKeysBytes[1] & 0xFF);
+-
+         int[] children = new int[numKeys + 1];
+ 
++        int cur_start_index = 6;
++        for (int i = 0; i < numKeys+1 ; i++){
++            byte[] lenKeyBytes = this.get_data(cur_start_index,2);
++            int len_key = (lenKeyBytes[0] << 8) | (lenKeyBytes[1] & 0xFF);
++            byte[] children_data = this.get_data(cur_start_index-2,2);
++            children[i] = (children_data[0] << 8) | (children_data[1] & 0xFF);
++            cur_start_index += (4 + len_key);
++        }
++        return children;
++
++    }
++
++    // can be used as helper function - won't be evaluated
++
++    // in this function retuning the index corresp to the pointer of who in children
++    // we can get the next node to find
++    @Override
++    public int search(T key) {
+         /* Write your code here */
++        int numKeys = getNumKeys();
++        T[] keys = this.getKeys();
++        int[] children = this.getChildren();
+ 
+-        return children;
++        for (int i = 0 ; i < numKeys ; i++){
++            if (compareValues(key, keys[i]) == 0 && ((i == numKeys - 1) || !(compareValues(key, keys[i+1]) == 0))){
++                return children[i+1];
++                // return children[i];
++            }
++            else if (compare_greaterThan((keys[i]), key) && (i == 0 || compare_greaterThan(key, keys[i-1]))){
++                return children[i];
++            }
++        }
++
++        return children[numKeys];
+ 
+     }
+ 
++
++    private int compareValues(Object value1, Object value2) {
++        if (value1 instanceof Integer && value2 instanceof Integer) {
++            return Integer.compare((int) value1, (int) value2);
++        } else if (value1 instanceof Float && value2 instanceof Float) {
++            return Float.compare((float) value1, (float) value2);
++        } else if (value1 instanceof Double && value2 instanceof Double) {
++            return Double.compare((double) value1, (double) value2);
++        } else if (value1 instanceof String && value2 instanceof String) {
++            return ((String) value1).compareTo((String) value2);
++        } else if (value1 instanceof Boolean && value2 instanceof Boolean) {
++            return Boolean.compare((boolean) value1, (boolean) value2);
++        } else {
++            // Handle unsupported data types
++            throw new IllegalArgumentException("Unsupported data types for comparison: " + value1.getClass() + ", " + value2.getClass());
++        }
++    }
+ }
+diff --git a/in/ac/iitd/src/main/java/index/bplusTree/LeafNode.java b/in/ac/iitd/src/main/java/index/bplusTree/LeafNode.java
+index 2d20b35..5e7fa6d 100644
+--- a/in/ac/iitd/src/main/java/index/bplusTree/LeafNode.java
++++ b/in/ac/iitd/src/main/java/index/bplusTree/LeafNode.java
+@@ -11,6 +11,7 @@ public class LeafNode<T> extends BlockNode implements TreeNode<T>{
+ 
+     Class<T> typeClass;
+ 
++    // initialisation of the leaf node of the b+ tree
+     public LeafNode(Class<T> typeClass) {
+         
+         super();
+@@ -28,6 +29,12 @@ public class LeafNode<T> extends BlockNode implements TreeNode<T>{
+         nextFreeOffsetBytes[1] = 8;
+         this.write_data(6, nextFreeOffsetBytes);
+ 
++        // set the prev node id value to -1
++        this.write_data(2, convertintToBytes(-1));
++
++        // set next node id value to -1
++        this.write_data(4, convertintToBytes(-1));
++
+         return;
+     }
+ 
+@@ -39,6 +46,14 @@ public class LeafNode<T> extends BlockNode implements TreeNode<T>{
+         T[] keys = (T[]) new Object[numKeys];
+ 
+         /* Write your code here */
++        int cur_start_index = 10;
++        for (int i = 0; i < numKeys ; i++){
++            byte[] lenKeyBytes = this.get_data(cur_start_index,2);
++            int len_key = (lenKeyBytes[0] << 8) | (lenKeyBytes[1] & 0xFF);
++            byte[] keys_object = this.get_data(cur_start_index+2,len_key);
++            keys[i] = convertBytesToT(keys_object,this.typeClass);
++            cur_start_index += (4 + len_key);
++        }
+ 
+         return keys;
+ 
+@@ -48,31 +63,139 @@ public class LeafNode<T> extends BlockNode implements TreeNode<T>{
+     public int[] getBlockIds() {
+ 
+         int numKeys = getNumKeys();
+-
+         int[] block_ids = new int[numKeys];
+ 
+         /* Write your code here */
++        int cur_start_index = 10;
++        for (int i = 0; i < numKeys ; i++){
++            byte[] lenKeyBytes = this.get_data(cur_start_index,2);
++            int len_key = (lenKeyBytes[0] << 8) | (lenKeyBytes[1] & 0xFF);
++            byte[] block_ids_data = this.get_data(cur_start_index-2,2);
++            block_ids[i] = (block_ids_data[0] << 8) | (block_ids_data[1] & 0xFF);
++            cur_start_index += (4 + len_key);
++        }
+ 
+         return block_ids;
+     }
+ 
+-    // can be used as helper function - won't be evaluated
++    private boolean compare_greaterThanEqualTo(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 >= (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) >= ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 >= (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) >= 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 >= (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
++    private boolean compare_greaterThan(T k1, T k2){
++        if (k1 instanceof Integer && k2 instanceof Integer) {
++            return (Integer) k1 > (Integer) k2;
++        } else if (k1 instanceof Boolean && k2 instanceof Boolean) {
++            return ((Boolean) k1 ? 1 : 0) > ((Boolean) k2 ? 1 : 0);
++        } else if (k1 instanceof Float && k2 instanceof Float) {
++            return (Float) k1 > (Float) k2;
++        } else if (k1 instanceof String && k2 instanceof String) {
++            return ((String) k1).compareTo((String) k2) >= 0;
++        } else if (k1 instanceof Double && k2 instanceof Double) {
++            return (Double) k1 > (Double) k2;
++        } else {
++            return false;
++        }
++    }
++
+     @Override
+     public void insert(T key, int block_id) {
+ 
++        byte[] ourKey1 = convertTToBytes(key);
++        byte[] blockIdBytes = convertintToBytes(block_id);
++        int lenkeyour = ourKey1.length;
++        byte[] ourlenKey = convertintToBytes(lenkeyour);
+ 
+-        /* Write your code here */
+-
++        T[] keys = this.getKeys();
++        int numKeys = getNumKeys();
++        int[] blockIdsArray = this.getBlockIds();
++        int cur_start_index = 10;
++        int start = 0;
++        for (int i = 0 ; i < numKeys ; i++){
++            // if (compare_greaterThanEqualTo((keys[i]), key) && ((i == 0) || compare_greaterThan(key,keys[i-1]))){
++            //     start = i;
++            //     break;
++            // }
++            if ((compare_greaterThan(keys[i], key)) && ((i == 0) || compare_greaterThanEqualTo(key,keys[i-1]))){
++                start = i; break;
++            }
++            byte[] lenKeyBytes = this.get_data(cur_start_index,2);
++            int len_key = (lenKeyBytes[0] << 8) | (lenKeyBytes[1] & 0xFF);
++            cur_start_index += (4 + len_key);
++            if (i == numKeys - 1){start = i+1;}
++        }
++
++        this.write_data(cur_start_index-2,blockIdBytes);
++        this.write_data(cur_start_index,ourlenKey);
++        this.write_data(cur_start_index+2,ourKey1);
++        cur_start_index += (4+lenkeyour);
++        while (start < numKeys){
++            byte[] keyByteElement = convertTToBytes(keys[start]);
++            byte[] blockIdElement = convertintToBytes(blockIdsArray[start]);
++            byte[] lenKeyElement = convertintToBytes(keyByteElement.length);
++            this.write_data(cur_start_index-2,blockIdElement);
++            this.write_data(cur_start_index,lenKeyElement);
++            this.write_data(cur_start_index+2,keyByteElement);
++            cur_start_index += (4 + keyByteElement.length);
++            start += 1;
++        }
++
++        byte[] newNumKeys = convertintToBytes(1+numKeys) ;
++        this.write_data(0,newNumKeys);
++
++        cur_start_index -= 2;
++        byte[] newNextFreeOffset = convertintToBytes(cur_start_index);
++        this.write_data(6,newNextFreeOffset);
+         return;
+ 
+     }
+ 
+     // can be used as helper function - won't be evaluated
++    // returning -1 if the key value doesnt exist in the b+ tree else returning 1
+     @Override
+     public int search(T key) {
+ 
+-        /* Write your code here */
++        T[] keys = this.getKeys();
++        int numKeys = getNumKeys();
++        for (int i = 0; i < numKeys ; i++){
++            if (compareValues(key, keys[i]) == 0){
++                return 1;
++            }
++            else if (compare_greaterThan((keys[i]), key) && (i == 0 || compare_greaterThan(key, keys[i-1]))){
++                return 1;
++            }
++        }
++
+         return -1;
+     }
+ 
++    private int compareValues(Object value1, Object value2) {
++        if (value1 instanceof Integer && value2 instanceof Integer) {
++            return Integer.compare((int) value1, (int) value2);
++        } else if (value1 instanceof Float && value2 instanceof Float) {
++            return Float.compare((float) value1, (float) value2);
++        } else if (value1 instanceof Double && value2 instanceof Double) {
++            return Double.compare((double) value1, (double) value2);
++        } else if (value1 instanceof String && value2 instanceof String) {
++            return ((String) value1).compareTo((String) value2);
++        } else if (value1 instanceof Boolean && value2 instanceof Boolean) {
++            return Boolean.compare((boolean) value1, (boolean) value2);
++        } else {
++            // Handle unsupported data types
++            throw new IllegalArgumentException("Unsupported data types for comparison: " + value1.getClass() + ", " + value2.getClass());
++        }
++    }
++
+ }
+diff --git a/in/ac/iitd/src/main/java/index/bplusTree/TreeNode.java b/in/ac/iitd/src/main/java/index/bplusTree/TreeNode.java
+index 1315e6b..976c65a 100644
+--- a/in/ac/iitd/src/main/java/index/bplusTree/TreeNode.java
++++ b/in/ac/iitd/src/main/java/index/bplusTree/TreeNode.java
+@@ -14,15 +14,88 @@ public interface TreeNode <T> {
+         for (T key : keys) {
+             System.out.print(key + " ");
+         }
++        // System.out.print(" | ");
+         return;
+     }
+-    
+-    // Might be useful for you - will not be evaluated
+-    default public T convertBytesToT(byte[] bytes, Class<T> typeClass){
++
++    default public byte[] convertintToBytes( int number){
+         
+         /* Write your code here */
++        byte[] answer = new byte[2];
++        answer[0] = (byte) ((number >> 8) & 0xFF);
++        answer[1] = (byte) (number & 0xFF);
++        return answer;
++    }
+ 
+-        return null;
++    default public int convertBytesToint( byte[] byte_array){
++
++        /* Write your code here */
++        int ans;
++        if (byte_array.length == 2){
++            ans = ((byte_array[0] << 8) | (byte_array[1] & 0xFF));
++        }
++        else{
++            ans = ((byte_array[0] & 0xFF) << 24) | ((byte_array[1] & 0xFF) << 16) | ((byte_array[2] & 0xFF) << 8) | (byte_array[3] & 0xFF);
++        }
++        return ans;
+     }
+     
++    default public T convertBytesToT(byte[] bytes, Class<T> typeClass) {
++        if (typeClass == String.class) {
++            return (T) new String(bytes); // Assume bytes represent UTF-8 encoded string
++        } else if (typeClass == Integer.class) {
++            // return (T) Integer.valueOf(convertBytesToInt(bytes));
++            int value = convertBytesToint(bytes);
++            return typeClass.cast(value);
++        } else if (typeClass == Boolean.class) {
++            return (T) Boolean.valueOf(bytes[0] != 0);
++        } else if (typeClass == Float.class) {
++            return (T) Float.valueOf(Float.intBitsToFloat(convertBytesToint(bytes)));
++        } else if (typeClass == Double.class) {
++            return (T) Double.valueOf(Double.longBitsToDouble(convertBytesToLong(bytes)));
++        } else {
++            // Handle unsupported type
++            return null;
++        }
++    }
++
++    default public byte[] convertTToBytes(T typeClassObject) {
++        if (typeClassObject instanceof String) {
++            return ((String) typeClassObject).getBytes(); // Assume UTF-8 encoding
++        } else if (typeClassObject instanceof Integer) {
++            return convertIntToBytes((Integer) typeClassObject);
++        } else if (typeClassObject instanceof Boolean) {
++            return new byte[] { (byte) (((Boolean) typeClassObject) ? 1 : 0) };
++        } else if (typeClassObject instanceof Float) {
++            return convertIntToBytes(Float.floatToIntBits((Float) typeClassObject));
++        } else if (typeClassObject instanceof Double) {
++            return convertLongToBytes(Double.doubleToLongBits((Double) typeClassObject));
++        } else {
++            return null;
++        }
++    }
++
++    default public byte[] convertIntToBytes(int number) {
++        byte[] bytes = new byte[4];
++        bytes[0] = (byte) ((number >> 24) & 0xFF);
++        bytes[1] = (byte) ((number >> 16) & 0xFF);
++        bytes[2] = (byte) ((number >> 8) & 0xFF);
++        bytes[3] = (byte) (number & 0xFF);
++        return bytes;
++    }
++
++
++    default public byte[] convertLongToBytes(long number) {
++        byte[] bytes = new byte[8];
++        for (int i = 0; i < 8; i++) {
++            bytes[i] = (byte) (number >> (56 - (i * 8)));
++        }
++        return bytes;
++    }
++
++    default public long convertBytesToLong(byte[] byteArray) {
++        return ((long) (byteArray[0] & 0xFF) << 56) | ((long) (byteArray[1] & 0xFF) << 48) | ((long) (byteArray[2] & 0xFF) << 40)
++                | ((long) (byteArray[3] & 0xFF) << 32) | ((long) (byteArray[4] & 0xFF) << 24) | ((long) (byteArray[5] & 0xFF) << 16)
++                | ((long) (byteArray[6] & 0xFF) << 8) | (byteArray[7] & 0xFF);
++    }
+ }
+\ No newline at end of file
+diff --git a/in/ac/iitd/src/main/java/manager/StorageManager.java b/in/ac/iitd/src/main/java/manager/StorageManager.java
+index c1eb28a..b91b1fb 100644
+--- a/in/ac/iitd/src/main/java/manager/StorageManager.java
++++ b/in/ac/iitd/src/main/java/manager/StorageManager.java
+@@ -4,6 +4,7 @@ import storage.DB;
+ import storage.File;
+ import storage.Block;
+ import Utils.CsvRowConverter;
++import index.bplusTree.BPlusTreeIndexFile;
+ 
+ import java.io.BufferedReader;
+ import java.io.FileReader;
+@@ -122,6 +123,7 @@ public class StorageManager {
+ 
+             if(typeList.get(i).getSqlTypeName().getName().equals("INTEGER")) {
+                 if(row[i] == null){
++                    // System.out.println("feddddd  upppppp");
+                     fixed_length_nullBitmap.add(true);
+                     for(int j = 0; j < 4; j++) {
+                         fixed_length_Bytes.add((byte) 0);
+@@ -140,13 +142,18 @@ public class StorageManager {
+                 }
+             } else if(typeList.get(i).getSqlTypeName().getName().equals("VARCHAR")) {
+                 if(row[i] == null){
++                    // System.out.println("aaya hoooonnnnn");
+                     variable_length_nullBitmap.add(true);
+                     for(int j = 0; j < 1; j++) {
+                         variable_length_Bytes.add((byte) 0);
+                     }
+                 } else {
++
+                     variable_length_nullBitmap.add(false);
+                     String val = (String) row[i];
++                    // if(val.length() == 0) {
++                    //     System.out.println("Size = 0");
++                    // }
+                     byte[] strBytes = val.getBytes();
+                     for(int j = 0; j < strBytes.length; j++) {
+                         variable_length_Bytes.add(strBytes[j]);
+@@ -381,24 +388,385 @@ public class StorageManager {
+         return file_to_fileid.get(index_file_name) != null;
+     }
+ 
++    private List<Integer> findDataTypes(String file_name) {
++        // System.out.println(file_name);
++        byte[] schemaBlock = get_data_block(file_name, 0);
++        int numCols = ((schemaBlock[1] << 8) | (schemaBlock[0] & 0xFF));  // little endian
++        List<Integer> dataTypes = new ArrayList<>(); // Initialize the list
++        int cur_pointer = 2;
++        int datatype;
++        for (int i = 0; i < numCols; i++) {
++            int offsetToRead = ((schemaBlock[cur_pointer+1] << 8) | (schemaBlock[cur_pointer] & 0xFF));    // little endian
++            datatype = (int) schemaBlock[offsetToRead];
++            cur_pointer += 2;
++            dataTypes.add(datatype);
++        }
++        return dataTypes;
++    }
++
++    public int findColumnIndex(String file_name, String column_name) {
++
++        byte[] schemaBlock = get_data_block(file_name, 0);
++        int numCols = ((schemaBlock[1] << 8) | (schemaBlock[0] & 0xFF));
++        int cur_pointer = 2, col_no = 0;
++        String col_name ;
++        for (int i = 0; i < numCols; i++) {
++            int offsetToRead = ((schemaBlock[cur_pointer+1] << 8) | (schemaBlock[cur_pointer ] & 0xFF));
++            int lengthtoread = (int) schemaBlock[offsetToRead+1];
++            byte[] stringarray = new byte[lengthtoread];
++            for (int j = lengthtoread - 1 ; j >= 0 ; j--){                  // check if this is correct wrt big and little endian
++                stringarray[j] = schemaBlock[offsetToRead+2+j];
++            }
++            col_name = new String(stringarray);
++            if (col_name.equals(column_name)){
++                col_no = i;
++                break;
++            }
++            cur_pointer += 2;
++        }
++        return col_no;
++    }
++
++    public int findColumnDatatype(String file_name, String column_name) {
++
++        byte[] schemaBlock = get_data_block(file_name, 0);
++        int numCols = ((schemaBlock[1] << 8) | (schemaBlock[0] & 0xFF));
++        int cur_pointer = 2;
++        String col_name ;
++        int datatype = -1;
++        for (int i = 0; i < numCols; i++) {
++            int offsetToRead = ((schemaBlock[cur_pointer+1] << 8) | (schemaBlock[cur_pointer ] & 0xFF));
++            int lengthtoread = (int) schemaBlock[offsetToRead+1];
++            byte[] stringarray = new byte[lengthtoread];
++            for (int j = lengthtoread - 1 ; j >= 0 ; j--){                  // check if this is correct wrt big and little endian
++                stringarray[j] = schemaBlock[offsetToRead+2+j];
++            }
++            col_name = new String(stringarray);
++            if (col_name.equals(column_name)){
++                // col_no = i;
++                datatype = (int) schemaBlock[offsetToRead];
++                break;
++            }
++            cur_pointer += 2;
++        }
++        return datatype;
++    }
++
++    private int numberOfFixedLengthRecords(List<Integer> dataTypes){
++        int ans = 0;
++        for (int i = 0; i < dataTypes.size(); i++){
++            if (dataTypes.get(i) != 0){ans += 1;}
++            else{break;}
++        }
++        return ans;
++    }
++
++    private int numberOfVariableLengthRecords(List<Integer> dataTypes){
++        int ans = 0;
++        for (int i = 0; i < dataTypes.size(); i++){
++            if (dataTypes.get(i) == 0){ans += 1;}
++        }
++        return ans;
++    }
++
++    private int totalFixedLengthOffset(List<Integer> dataTypes){
++        int ans = 0;
++        for (int i = 0; i < dataTypes.size(); i++){
++            if (dataTypes.get(i) == 1){ans += 4;}
++            if (dataTypes.get(i) == 2){ans += 1;}
++            if (dataTypes.get(i) == 3){ans += 4;}
++            if (dataTypes.get(i) == 4){ans += 8;}
++            else{break;}
++        }
++        return ans;
++    }
++
++    private Object[] convertToObjectArray(byte[] row, List<Integer> typeList) {
++
++        int numberOfFixedLengthRecordsans = numberOfFixedLengthRecords((typeList));
++        int offsetoffixedvariables = 2*2*numberOfVariableLengthRecords((typeList));
++        int offsetnullbitmap = offsetoffixedvariables + totalFixedLengthOffset(typeList);
++
++        List<Object> answer = new ArrayList<>();
++        // first reading the fixed length records
++        int cur_pointer = 2*2*numberOfVariableLengthRecords((typeList));
++        int cur_pointer_null_bitmap = offsetnullbitmap;
++        int col_no = 0;
++
++        for (int i = 0 ; i < numberOfFixedLengthRecords(typeList) ; i++){
++
++            int datatype = typeList.get(i);
++            // int nullbitmapvalue = ((row[offsetnullbitmap + (col_no/8)] >> (7-(col_no%8))) & 1) ; // check if this is correct
++            int nullbitmapvalue = (((row[offsetnullbitmap + (col_no/8)]) & (1 << (7-(col_no%8)))));
++            // if (nullbitmapvalue == 1){System.out.println("row[offsetnullbitmap + (col_no/8)] : " + row[offsetnullbitmap + (col_no/8)] + " row[offsetnullbitmap + (col_no/8)] >> (7-(col_no%8)) : " + (row[offsetnullbitmap + (col_no/8)] >> (7-(col_no%8))) ) ;}
++            if (datatype == 1){
++                if (nullbitmapvalue == 1){answer.add(null);}
++                else{
++                    int integerDataType = ((row[cur_pointer+3] & 0xFF) << 24) | ((row[cur_pointer + 2] & 0xFF) << 16) | ((row[cur_pointer + 1] & 0xFF) << 8) | (row[cur_pointer + 0] & 0xFF);
++                    answer.add(integerDataType);
++                }
++                cur_pointer += 4;
++            }
++            else if (datatype == 2){
++                if (nullbitmapvalue == 1){answer.add(null);}
++                else{
++                    boolean booldatatype = (row[cur_pointer] != 0);
++                    answer.add(booldatatype);
++                }
++                cur_pointer += 1;
++            }
++            else if (datatype == 3){
++                if (nullbitmapvalue == 1){answer.add(null);}
++                else{
++                    int intBits = ((row[cur_pointer + 3] & 0xFF) << 24) | ((row[cur_pointer + 2] & 0xFF) << 16) | ((row[cur_pointer + 1] & 0xFF) << 8) | (row[cur_pointer + 0] & 0xFF);
++                    float val = Float.intBitsToFloat(intBits);
++                    answer.add(val);
++                }
++                cur_pointer += 4;
++            }
++            else if (datatype == 4){
++                if (nullbitmapvalue == 1){answer.add(null);}
++                else{
++                    long longBits = ((row[cur_pointer + 7] & 0xFFL) << 56) | ((row[cur_pointer + 6] & 0xFFL) << 48) | ((row[cur_pointer + 5] & 0xFFL) << 40) | ((row[cur_pointer + 4] & 0xFFL) << 32) | ((row[cur_pointer + 3] & 0xFFL) << 24) | ((row[cur_pointer + 2] & 0xFFL) << 16) | ((row[cur_pointer + 1] & 0xFFL) << 8) | (row[cur_pointer + 0] & 0xFFL);
++                    double val = Double.longBitsToDouble(longBits);
++                    answer.add(val);
++                }
++                cur_pointer += 8;
++            }
++            else{col_no += 1; break;}
++            col_no += 1;
++
++        }
++
++        cur_pointer = 0;
++
++        for (int i = 0 ; i < numberOfVariableLengthRecords(typeList) ; i++){
++
++            int datatype = typeList.get(i+numberOfFixedLengthRecordsans);
++            int nullbitmapvalue = (row[offsetnullbitmap + (col_no/8)]) & (1 << (7-(col_no%8)));
++
++            // need to read the nullbitmap also to check if the value is null or the one read
++            if (datatype == 0){
++                if (nullbitmapvalue == 1){answer.add(null);}
++                else{
++                    int offsettoread = ((row[cur_pointer+1] << 8) | (row[cur_pointer + 0] & 0xFF));
++                    int lengthtoread = ((row[cur_pointer+3] << 8) | (row[cur_pointer + 2] & 0xFF));      // little endian
++                    byte[] stringarray = new byte[lengthtoread];
++                    // for (int j = 0 ; j < lengthtoread ; j++){
++                    for (int j = lengthtoread - 1 ; j >= 0 ; j--){                  // check if this is correct wrt big and little endian
++                        stringarray[j] = row[offsettoread+j];
++                    }
++                    String string_to_add = new String(stringarray);
++                    if (lengthtoread == 0){answer.add(null);}
++                    else{answer.add(string_to_add);}
++                    // System.out.println("printing offsettoread " + offsettoread + "priting legnth to read "  +lengthtoread);
++                    // System.out.println("printing stringggg "+ stringarray);
++                    // System.out.println("printing stringggg "+ new String(stringarray));
++                }
++            }
++            col_no += 1;
++            cur_pointer += 4;
++        }
++        return answer.toArray();
++    }
++
+     // the order of returned columns should be same as the order in schema
+     // i.e., first all fixed length columns, then all variable length columns
+     public List<Object[]> get_records_from_block(String table_name, int block_id){
+         /* Write your code here */
+         // return null if file does not exist, or block_id is invalid
+-        // return list of records otherwise
+-        return null;
++
++        List<Object[]> answer = new ArrayList<>();
++
++        if (!check_file_exists((table_name)) || block_id <= 0 || (get_data_block(table_name, block_id) == null)){return null;} // check if the block id is valid or not
++
++        byte[] datablock = get_data_block(table_name, block_id);
++        Block b = new Block(datablock);
++        List<Integer> typeList = findDataTypes((table_name));
++
++        int numRecords = ((datablock[0] << 8) | (datablock[1] & 0xFF));   // big endian
++
++        int prev_offset = ((datablock[2] << 8) | (datablock[3] & 0xFF));
++        int cur_offset = ((datablock[2] << 8) | (datablock[3] & 0xFF));    // big endian
++
++
++        for (int i = 0 ; i < numRecords ; i++){
++            cur_offset = ((datablock[(i+1)*2] << 8) | (datablock[(i+1)*2 + 1] & 0xFF));
++            byte[] record;
++            if (i == 0){
++                record = b.get_data(cur_offset,b.get_block_capacity()-cur_offset);
++            }
++            else{
++                record = b.get_data(cur_offset,prev_offset-cur_offset);
++            }
++            Object[] recordObject = convertToObjectArray((record), typeList);
++            answer.add(recordObject);
++            prev_offset = cur_offset;
++        }
++
++        return answer;
+     }
+ 
+     public boolean create_index(String table_name, String column_name, int order) {
+-        /* Write your code here */
+-        return false;
++
++        // finding the column number corresponding to the column name in database
++        byte[] schemaBlock = get_data_block(table_name, 0);
++        int numCols = ((schemaBlock[1] << 8) | (schemaBlock[0] & 0xFF));
++        int cur_pointer = 2, col_no = 0, datatype = -1;
++        String col_name ;
++        boolean found = false;
++        for (int i = 0; i < numCols; i++) {
++            int offsetToRead = ((schemaBlock[cur_pointer+1] << 8) | (schemaBlock[cur_pointer ] & 0xFF));
++            int lengthtoread = (int) schemaBlock[offsetToRead+1];
++            byte[] stringarray = new byte[lengthtoread];
++            for (int j = lengthtoread - 1 ; j >= 0 ; j--){                  // check if this is correct wrt big and little endian
++                stringarray[j] = schemaBlock[offsetToRead+2+j];
++            }
++            col_name = new String(stringarray);
++            if (col_name.equals(column_name)){
++                col_no = i;
++                found = true;
++                datatype = (int) schemaBlock[offsetToRead];
++                break;
++            }
++            cur_pointer += 2;
++        }
++
++        if (!found){return false;}
++        // initialsing the b+tree
++        int block_id = 1;
++        if (datatype == 0){
++            BPlusTreeIndexFile<String> b_plus_tree ;
++            b_plus_tree = new BPlusTreeIndexFile<>(order, String.class);
++            while (get_records_from_block(table_name, block_id) != null){
++                List<Object[]> recordFile = get_records_from_block(table_name, block_id);
++                int numRecords = recordFile.size();
++                for (int i = 0 ; i < numRecords ; i++){
++                    Object obj = recordFile.get(i)[col_no];
++                    String key = (String) obj;
++                    if (obj != null){
++                        // System.out.println("going to insert");
++                        b_plus_tree.insert(key, block_id);
++                        // System.out.println("came out after insertion");
++                    }
++                }
++                block_id += 1;
++            }
++            String index_file_name = table_name + "_" + column_name + "_index";
++            int counter = db.addFile(b_plus_tree);
++            file_to_fileid.put(index_file_name, counter);
++        }
++        else if (datatype == 1){
++            BPlusTreeIndexFile<Integer> b_plus_tree ;
++            b_plus_tree = new BPlusTreeIndexFile<>(order, Integer.class);
++            while (get_records_from_block(table_name, block_id) != null){
++                List<Object[]> recordFile = get_records_from_block(table_name, block_id);
++                int numRecords = recordFile.size();
++                for (int i = 0 ; i < numRecords ; i++){
++                    Object obj = recordFile.get(i)[col_no];
++                    Integer key = (Integer) obj;
++                    // System.out.println("idhar ");
++                    // System.out.println("printing key " + key + " printing block id " + block_id);
++                    if (obj != null){
++                        b_plus_tree.insert(key, block_id);
++                    }
++                    // b_plus_tree.insert(key, block_id);
++                    // System.out.println("but not here");
++                }
++                block_id += 1;
++            }
++            String index_file_name = table_name + "_" + column_name + "_index";
++            int counter = db.addFile(b_plus_tree);
++            file_to_fileid.put(index_file_name, counter);
++        }
++        else if (datatype == 2){
++            BPlusTreeIndexFile<Boolean> b_plus_tree ;
++            b_plus_tree = new BPlusTreeIndexFile<>(order, Boolean.class);
++            while (get_records_from_block(table_name, block_id) != null){
++                List<Object[]> recordFile = get_records_from_block(table_name, block_id);
++                int numRecords = recordFile.size();
++                for (int i = 0 ; i < numRecords ; i++){
++                    Object obj = recordFile.get(i)[col_no];
++                    Boolean key = (Boolean) obj;
++                    // b_plus_tree.insert(key, block_id);
++                    if (obj != null){
++                        b_plus_tree.insert(key, block_id);
++                    }
++                }
++                block_id += 1;
++            }
++            String index_file_name = table_name + "_" + column_name + "_index";
++            int counter = db.addFile(b_plus_tree);
++            file_to_fileid.put(index_file_name, counter);
++        }
++        else if (datatype == 3){
++            BPlusTreeIndexFile<Float> b_plus_tree ;
++            b_plus_tree = new BPlusTreeIndexFile<>(order, Float.class);
++            while (get_records_from_block(table_name, block_id) != null){
++                List<Object[]> recordFile = get_records_from_block(table_name, block_id);
++                int numRecords = recordFile.size();
++                for (int i = 0 ; i < numRecords ; i++){
++                    Object obj = recordFile.get(i)[col_no];
++                    Float key = (Float) obj;
++                    // b_plus_tree.insert(key, block_id);
++                    if (obj != null){
++                        b_plus_tree.insert(key, block_id);
++                    }
++                }
++                block_id += 1;
++            }
++            String index_file_name = table_name + "_" + column_name + "_index";
++            int counter = db.addFile(b_plus_tree);
++            file_to_fileid.put(index_file_name, counter);
++        }
++        else if (datatype == 4){
++            BPlusTreeIndexFile<Double> b_plus_tree ;
++            b_plus_tree = new BPlusTreeIndexFile<>(order, Double.class);
++            while (get_records_from_block(table_name, block_id) != null){
++                List<Object[]> recordFile = get_records_from_block(table_name, block_id);
++                int numRecords = recordFile.size();
++                for (int i = 0 ; i < numRecords ; i++){
++                    Object obj = recordFile.get(i)[col_no];
++                    Double key = (Double) obj;
++                    // b_plus_tree.insert(key, block_id);
++                    if (obj != null){
++                        b_plus_tree.insert(key, block_id);
++                    }
++                }
++                block_id += 1;
++            }
++
++            String index_file_name = table_name + "_" + column_name + "_index";
++            int counter = db.addFile(b_plus_tree);
++            file_to_fileid.put(index_file_name, counter);
++        }
++        // System.out.println("rturneddd");
++
++        return true;
+     }
+ 
+     // returns the block_id of the leaf node where the key is present
+-    public int search(String table_name, String column_name, RexLiteral value) {
+-        /* Write your code here */
+-        return -1;
++    public int search(String table_name, String column_name, RexLiteral value, int datatype) {
++        String index_file_name = table_name + "_" + column_name + "_index";
++        int file_id = file_to_fileid.get(index_file_name);
++        Object valueobj = null;
++        if (datatype == 1) {
++            valueobj = value.getValueAs(Integer.class);
++        }
++        else if (datatype == 2) {
++            valueobj = value.getValueAs(Boolean.class);
++        }
++        else if (datatype == 3) {
++            valueobj = value.getValueAs(Float.class);
++        }
++        else if (datatype == 4) {
++            valueobj = value.getValueAs(Double.class);
++        }
++        else  {
++            valueobj = value.getValueAs(String.class);
++        }
++        // System.out.println("going to find the vlaue " + valueobj);
++        return db.search_index(file_id, valueobj);
+     }
+ 
+     public boolean delete(String table_name, String column_name, RexLiteral value) {
+@@ -414,6 +782,7 @@ public class StorageManager {
+ 
+     public <T> ArrayList<T> return_bfs_index(String table_name, String column_name) {
+         if(check_index_exists(table_name, column_name)) {
++            // System.out.println("idhar hoon");
+             int file_id = file_to_fileid.get(table_name + "_" + column_name + "_index");
+             return db.return_bfs_index(file_id);
+         } else {
+@@ -422,4 +791,4 @@ public class StorageManager {
+         return null;
+     }
+ 
+-}
+\ No newline at end of file
++}
+diff --git a/in/ac/iitd/src/main/java/optimizer/rel/PIndexScan.java b/in/ac/iitd/src/main/java/optimizer/rel/PIndexScan.java
+index db265b7..f16fb29 100644
+--- a/in/ac/iitd/src/main/java/optimizer/rel/PIndexScan.java
++++ b/in/ac/iitd/src/main/java/optimizer/rel/PIndexScan.java
+@@ -6,55 +6,492 @@ import org.apache.calcite.plan.RelTraitSet;
+ import org.apache.calcite.rel.RelNode;
+ import org.apache.calcite.rel.core.TableScan;
+ import org.apache.calcite.rel.type.RelDataType;
++import org.apache.calcite.rex.RexCall;
++import org.apache.calcite.rex.RexInputRef;
++import org.apache.calcite.rex.RexLiteral;
+ import org.apache.calcite.rex.RexNode;
++import org.apache.calcite.rex.RexVisitorImpl;
++import org.apache.calcite.sql.SqlOperator;
++import org.apache.calcite.sql.fun.SqlStdOperatorTable;
++import java.util.Arrays;
++import org.apache.calcite.rex.RexBuilder;
++import org.apache.calcite.rex.RexLiteral;
+ 
++import index.bplusTree.LeafNode;
+ import manager.StorageManager;
+ 
++import java.nio.ByteBuffer;
++import java.nio.charset.StandardCharsets;
++import java.util.ArrayList;
+ import java.util.List;
++import java.util.Collections;
++import java.util.HashSet;
++import java.util.Set;
++import java.util.Iterator;
+ 
+ // Operator trigged when doing indexed scan
+ // Matches SFW queries with indexed columns in the WHERE clause
+ public class PIndexScan extends TableScan implements PRel {
++
++    private final List<RexNode> projects;
++    private final RelDataType rowType;
++    private final RelOptTable table;
++    private final RexNode filter;
++
++    public PIndexScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table, RexNode filter,
++            List<RexNode> projects) {
++        super(cluster, traitSet, table);
++        this.table = table;
++        this.rowType = deriveRowType();
++        this.filter = filter;
++        this.projects = projects;
++    }
++
++    @Override
++    public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
++        return new PIndexScan(getCluster(), traitSet, table, filter, projects);
++    }
++
++    @Override
++    public RelOptTable getTable() {
++        return table;
++    }
++
++    @Override
++    public String toString() {
++        return "PIndexScan";
++    }
++
++    public String getTableName() {
++        return table.getQualifiedName().get(1);
++    }
++
++    @Override
++    public List<Object[]> evaluate(StorageManager storage_manager) {
++        String tableName = getTableName();
++        System.out.println("Evaluating PIndexScan for table: " + tableName);
++
++        /* Write your code here */
++        RexCall call = (RexCall) filter;
++        SqlOperator operator = call.getOperator();
++
++        // Assuming it's a binary operator
++
++            RexNode left = call.getOperands().get(0);
++            RexNode right = call.getOperands().get(1);
++
++            // Get column index and key value
++            int columnIndex = -1;
++            // Object keyValue = null;
++            RexLiteral keyvalue1 = null;
++            Object keyValue = null;
++
++            // System.out.println("printing left and rifht "  +left + " "  + right);
++
++            if (left instanceof RexInputRef && right instanceof RexLiteral) {
++                columnIndex = ((RexInputRef) left).getIndex();
++                keyvalue1 = ((RexLiteral) right);
++            } else if (right instanceof RexInputRef && left instanceof RexLiteral) {
++                columnIndex = ((RexInputRef) right).getIndex();
++                keyvalue1 = ((RexLiteral) left);
++            }
++
++            // Get column name
++            String columnName = null;
++            String dataTypeString = null;
++            if (columnIndex != -1) {
++                columnName = rowType.getFieldList().get(columnIndex).getName();
++                RelDataType dataType = rowType.getFieldList().get(columnIndex).getType();
++                dataTypeString = dataType.toString();
++            }
++
++            columnIndex = storage_manager.findColumnIndex(tableName, columnName);
++            int datatype1 = storage_manager.findColumnDatatype(tableName, columnName);
++
++            if (datatype1 == 1) {
++                dataTypeString = "INTEGER";
++                keyValue = keyvalue1.getValueAs(Integer.class);
++            }
++            else if (datatype1 == 2) {
++                dataTypeString = "BOOLEAN";
++                keyValue = keyvalue1.getValueAs(Boolean.class);
++            }
++            else if (datatype1 == 3) {
++                dataTypeString = "FLOAT";
++                keyValue = keyvalue1.getValueAs(Float.class);
++            }
++            else if (datatype1 == 4) {
++                dataTypeString = "DOUBLE";
++                // System.out.println("aa gyaaa idhaarrrr");
++                keyValue = keyvalue1.getValueAs(Double.class);
++            }
++            else  {
++                dataTypeString = "STRING";
++                keyValue = keyvalue1.getValueAs(String.class);
++            }
++
++
++            // if (keyvalue1.getType().getSqlTypeName().getName().equals("INTEGER")) {
++            //     keyValue = keyvalue1.getValueAs(Integer.class);
++            // }
++            // else if (keyvalue1.getType().getSqlTypeName().getName().equals("BOOLEAN")) {
++            //     keyValue = keyvalue1.getValueAs(Boolean.class);
++            // }
++            // else if (keyvalue1.getType().getSqlTypeName().getName().equals("FLOAT")) {
++            //     keyValue = keyvalue1.getValueAs(Float.class);
++            // }
++            // else if (keyvalue1.getType().getSqlTypeName().getName().equals("DOUBLE")) {
++            //     keyValue = keyvalue1.getValueAs(Double.class);
++            // }
++            // else  {
++            //     keyValue = keyvalue1.getValueAs(String.class);
++            // }
++
++            // System.out.println("printing the column index found " + columnIndex);
++
++            int search_result = storage_manager.search(tableName, columnName, keyvalue1, datatype1);
++            // System.out.println("came putttttttt");
++            int datatype;
++            String operation = operator.getName();
++            byte[] keyInByteArray = null;
++            String index_file_name = tableName + "_" + columnName + "_index";
++
++            // System.out.println("value od search key of storage manager search is " + search_result);
++
++            if (keyValue instanceof Integer) {
++                ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
++                buffer.putInt((Integer) keyValue);
++                keyInByteArray = buffer.array();
++            } else if (keyValue instanceof String) {
++                // System.out.println("ayaaa hooon idhaarrrr");
++                keyInByteArray = ((String) keyValue).getBytes(StandardCharsets.UTF_8);
++            } else if (keyValue instanceof Float) {
++                ByteBuffer buffer = ByteBuffer.allocate(Float.BYTES);
++                buffer.putFloat((Float) keyValue);
++                keyInByteArray = buffer.array();
++            } else if (keyValue instanceof Double) {
++                ByteBuffer buffer = ByteBuffer.allocate(Double.BYTES);
++                buffer.putDouble((Double) keyValue);
++                keyInByteArray = buffer.array();
++            } else if (keyValue instanceof Boolean) {
++                keyInByteArray = new byte[] { (byte) (((Boolean) keyValue) ? 1 : 0) };
++            }
++
++
++            if (operation.equals("<=")){
++                operation = "LE";
++            }
++            else if (operation.equals(">=")){
++                operation = "GE";
++            }
++            else if (operation.equals("<")){
++                operation = "L";
++            }
++            else if (operation.equals(">")){
++                operation = "G";
++            }
++            else if (operation.equals("=")){
++                operation = "E";
++            }
++
++            Set<Integer> set_of_block_ids_in_db = new HashSet<>();;
++            if (dataTypeString.equals("INTEGER")){
++                datatype = 1;
++                set_of_block_ids_in_db = getBlocksidsforleaf(index_file_name, search_result, storage_manager, datatype, keyInByteArray, operation);
++            }
++            else if (dataTypeString.equals("STRING")){
++                datatype = 0;
++                set_of_block_ids_in_db = getBlocksidsforleaf(index_file_name, search_result, storage_manager, datatype, keyInByteArray, operation);
++            }
++            else if (dataTypeString.equals("FLOAT")){
++                datatype = 3;
++                set_of_block_ids_in_db = getBlocksidsforleaf(index_file_name, search_result, storage_manager, datatype, keyInByteArray, operation);
++            }
++            else if (dataTypeString.equals("DOUBLE")){
++                datatype = 4;
++                set_of_block_ids_in_db = getBlocksidsforleaf(index_file_name, search_result, storage_manager, datatype, keyInByteArray, operation);
++            }
++            else if (dataTypeString.equals("BOOLEAN")){
++                datatype = 2;
++                set_of_block_ids_in_db = getBlocksidsforleaf(index_file_name, search_result, storage_manager, datatype, keyInByteArray, operation);
++            }
++
++            List<Object[]> relevantRecordsArray = new ArrayList<>();
++
++            Iterator<Integer> iterator = set_of_block_ids_in_db.iterator();
++            while (iterator.hasNext()) {
++                int element = iterator.next();
++                List<Object[]> allRecordsArray = storage_manager.get_records_from_block(tableName, element);
++                // System.out.println("element " + element + " length of array is " + allRecordsArray.size());
++                for (int i = 0; i < allRecordsArray.size(); i++) {
++                    Object key = allRecordsArray.get(i)[columnIndex]; // Retrieve the key
++
++                    if ("E".equals(operation)) {
++                        if (key.equals(keyValue)) {
++                            relevantRecordsArray.add(allRecordsArray.get(i));
++                        }
++                    } else if ("GE".equals(operation)) {
++                        if (compareValues(key, keyValue) >= 0) {
++                            relevantRecordsArray.add(allRecordsArray.get(i));
++                        }
++                    } else if ("LE".equals(operation)) {
++                        if (compareValues(key, keyValue) <= 0) {
++                            relevantRecordsArray.add(allRecordsArray.get(i));
++                        }
++                    } else if ("G".equals(operation)) {
++                        if (compareValues(key, keyValue) > 0) {
++                            relevantRecordsArray.add(allRecordsArray.get(i));
++                        }
++                    } else if ("L".equals(operation)) {
++                        if (compareValues(key, keyValue) < 0) {
++                            relevantRecordsArray.add(allRecordsArray.get(i));
++                        }
++                    }
++                }
++            }
++
++            // printed the relevant records here
++
++            //  for (Object[] array : relevantRecordsArray) {
++            //      for (Object element : array) {
++            //          System.out.print(element + " ");
++            //      }
++            //      // System.out.println(array[columnIndex]);
++            //      System.out.println(); // Print a new line after each array
++            //  }
++
++            //  System.out.println("priting the number of relevant records " + relevantRecordsArray.size());
++
++            return relevantRecordsArray;
++
++    }
++
++    // Method to compare values of different data types
++    private int compareValues(Object value1, Object value2) {
++        if (value1 instanceof Integer && value2 instanceof Integer) {
++            return Integer.compare((int) value1, (int) value2);
++        } else if (value1 instanceof Float && value2 instanceof Float) {
++            return Float.compare((float) value1, (float) value2);
++        } else if (value1 instanceof Double && value2 instanceof Double) {
++            return Double.compare((double) value1, (double) value2);
++        } else if (value1 instanceof String && value2 instanceof String) {
++            return ((String) value1).compareTo((String) value2);
++        } else if (value1 instanceof Boolean && value2 instanceof Boolean) {
++            return Boolean.compare((boolean) value1, (boolean) value2);
++        } else {
++            // Handle unsupported data types
++            throw new IllegalArgumentException("Unsupported data types for comparison: " + value1.getClass() + ", " + value2.getClass());
++        }
++    }
++
++    public Set<Integer> getBlockIdswithoutt(byte[] datablock){
++        int numKeys = (datablock[0] << 8) | (datablock[1] & 0xFF);
++        Set<Integer> set = new HashSet<>();
++
++        int cur_pointer = 10;
++        for (int i = 0; i < numKeys ; i++){
++            int len_key = (datablock[cur_pointer] << 8) | (datablock[cur_pointer + 1] & 0xFF);
++            byte[] keys_object = Arrays.copyOfRange(datablock, cur_pointer + 2, cur_pointer + len_key);
++            int block_id = (datablock[cur_pointer - 2] << 8) | (datablock[cur_pointer - 1] & 0xFF);
++            set.add(block_id);
++            cur_pointer += (4 + len_key);
++        }
++        return set;
++    }
++
++    public boolean compareKeys(int dataType, byte[] key1, byte[] key2, String operator) {
++
++        if (dataType == 1) { // Int
++            ByteBuffer wrapped1 = ByteBuffer.wrap(key1);
++            int k1 = wrapped1.getInt();
++            ByteBuffer wrapped2 = ByteBuffer.wrap(key2);
++            int k2 = wrapped2.getInt();
++            if (operator.equals("E")) {
++                return k1 == k2;
++            } else if (operator.equals("GE")) {
++                return k1 >= k2;
++            } else if (operator.equals("G")) {
++                return k1 > k2;
++            } else if (operator.equals("LE")) {
++                return k1 <= k2;
++            } else {
++                return k1 < k2;
++            }
+     
+-        private final List<RexNode> projects;
+-        private final RelDataType rowType;
+-        private final RelOptTable table;
+-        private final RexNode filter;
++        } else if (dataType == 3) { // Float
++            ByteBuffer wrapped1 = ByteBuffer.wrap(key1);
++            float f1 = wrapped1.getFloat();
++            ByteBuffer wrapped2 = ByteBuffer.wrap(key2);
++            float f2 = wrapped2.getFloat();
+     
+-        public PIndexScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table, RexNode filter, List<RexNode> projects) {
+-            super(cluster, traitSet, table);
+-            this.table = table;
+-            this.rowType = deriveRowType();
+-            this.filter = filter;
+-            this.projects = projects;
+-        }
++            if (operator.equals("E")) {
++                return Float.compare(f1, f2) == 0;
++            } else if (operator.equals("GE")) {
++                return f1 >= f2;
++            } else if (operator.equals("G")) {
++                return f1 > f2;
++            } else if (operator.equals("LE")) {
++                return f1 <= f2;
++            } else {
++                return f1 < f2;
++            }
++
++        } else if (dataType == 4) { // Double
++            ByteBuffer wrapped1 = ByteBuffer.wrap(key1);
++            double d1 = wrapped1.getDouble();
++            ByteBuffer wrapped2 = ByteBuffer.wrap(key2);
++            double d2 = wrapped2.getDouble();
+     
+-        @Override
+-        public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
+-            return new PIndexScan(getCluster(), traitSet, table, filter, projects);
++            if (operator.equals("E")) {
++                return Double.compare(d1, d2) == 0;
++            } else if (operator.equals("GE")) {
++                return d1 >= d2;
++            } else if (operator.equals("G")) {
++                return d1 > d2;
++            } else if (operator.equals("LE")) {
++                return d1 <= d2;
++            } else {
++                return d1 < d2;
++            }
++
++        } else if (dataType == 0) { // String
++            String s1 = new String(key1);
++            String s2 = new String(key2);
++
++            if (operator.equals("E")) {
++                return s1.compareTo(s2) == 0;
++            } else if (operator.equals("GE")) {
++                return s1.compareTo(s2) >= 0;
++            } else if (operator.equals("G")) {
++                return s1.compareTo(s2) > 0;
++            } else if (operator.equals("LE")) {
++                return s1.compareTo(s2) <= 0;
++            } else {
++                return s1.compareTo(s2) < 0;
++            }
++
++        } else if (dataType == 2) { // Boolean
++            boolean b1 = key1[0] != 0;
++            boolean b2 = key2[0] != 0;
++
++            if (operator.equals("E")) {
++                return b1 == b2;
++            }
+         }
+     
+-        @Override
+-        public RelOptTable getTable() {
+-            return table;
++        return false;
++    }
++
++    public Set<Integer> getBlocksidsforoneleaf(String file_name, int leaf_id , StorageManager storagemanager, int datatype, byte[] key1, String operation) {
++        Set<Integer> answer = new HashSet<>();
++        byte[] datablock = storagemanager.get_data_block(file_name, leaf_id);
++
++        int numKeys = (datablock[0] << 8) | (datablock[1] & 0xFF);
++        int cur_pointer = 10;
++        for (int i = 0; i < numKeys; i++) {
++            int len_key = (datablock[cur_pointer] << 8) | (datablock[cur_pointer + 1] & 0xFF);
++            byte[] keys_object = new byte[len_key];
++            for (int j = 0 ; j < len_key ; j++){
++                keys_object[j] = datablock[cur_pointer + 2 + j];
++            }
++            // byte[] keys_object = Arrays.copyOfRange(datablock, cur_pointer + 2, cur_pointer + len_key);
++            int block_id = (datablock[cur_pointer - 2] << 8) | (datablock[cur_pointer - 1] & 0xFF);
++            if (compareKeys(datatype, keys_object, key1, operation)) {
++                answer.add(block_id);
++            }
++            cur_pointer += (4 + len_key);
++        }
++        return answer;
++    }
++
++    public Set<Integer> goLeftIds(byte[] datablock, int current_id, String file_name, StorageManager storagemanager){
++        // int numKeys = (datablock[0] << 8) | (datablock[1] & 0xFF);
++        Set<Integer> set = new HashSet<>();
++        set.add(current_id);
++        int left_node_pointer = (datablock[2] << 8) | (datablock[3] & 0xFF);
++
++        while (left_node_pointer != -1){
++            set.add(left_node_pointer);
++            datablock = storagemanager.get_data_block(file_name, left_node_pointer);
++            left_node_pointer = (datablock[2] << 8) | (datablock[3] & 0xFF);
+         }
+ 
+-        @Override
+-        public String toString() {
+-            return "PIndexScan";
++        return set;
++    }
++
++    public Set<Integer> goRightIds(byte[] datablock, int current_id, String file_name, StorageManager storagemanager){
++        // int numKeys = (datablock[0] << 8) | (datablock[1] & 0xFF);
++        Set<Integer> set = new HashSet<>();
++        set.add(current_id);
++        int right_node_pointer = (datablock[4] << 8) | (datablock[5] & 0xFF);
++        while (right_node_pointer != -1){
++            set.add(right_node_pointer);
++            datablock = storagemanager.get_data_block(file_name, right_node_pointer);
++            right_node_pointer = (datablock[4] << 8) | (datablock[5] & 0xFF);
+         }
++        // System.out.println("v kjdsfjadv a");
++        return set;
++    }
++
++    public Set<Integer> getBlocksidsforleaf(String file_name, int leaf_id , StorageManager storagemanager, int datatype, byte[] key1, String operator) {
+ 
+-        public String getTableName() {
+-            return table.getQualifiedName().get(1);
++        if (leaf_id == -1){
++            if (operator.equals("E")) {
++                return Collections.emptySet();
++            } else if (operator.equals("GE")) {
++                return Collections.emptySet();
++            } else if (operator.equals("G")) {
++                return Collections.emptySet();
++            } else if (operator.equals("LE")) {
++                // return getBlockIdswithoutt(storagemanager.get_data_block(file_name, leaf_id));
++                return getBlocksidsforleaf(file_name, 1 , storagemanager,  datatype, key1, operator);
++            } else {
++                // return getBlockIdswithoutt(storagemanager.get_data_block(file_name, leaf_id));
++                return getBlocksidsforleaf(file_name, 1 , storagemanager,  datatype, key1, operator);
++            }
+         }
++        else{
++            boolean go_left = false, go_right = false;
++            if (operator.equals("E")) {
++                go_right = true;
++            } else if (operator.equals("GE")) {
++                // System.out.println("cammmeeeee");
++                go_right = true;
++            } else if (operator.equals("G")) {
++                go_right = true;
++            } else if (operator.equals("LE")) {
++                go_left = true; go_right = true;
++            } else {
++                go_left = true;
++            }
+ 
+-        @Override
+-        public List<Object[]> evaluate(StorageManager storage_manager) {
+-            String tableName = getTableName();
+-            System.out.println("Evaluating PIndexScan for table: " + tableName);
++            Set<Integer> set_of_block_ids;
++            if (go_left && !go_right){
++                set_of_block_ids = goLeftIds(storagemanager.get_data_block(file_name, leaf_id), leaf_id, file_name, storagemanager);
++            }
++            else if (go_right && !go_left){
++                set_of_block_ids = goRightIds(storagemanager.get_data_block(file_name, leaf_id), leaf_id, file_name, storagemanager);
++            }
++            else{
++                set_of_block_ids = goLeftIds(storagemanager.get_data_block(file_name, leaf_id), leaf_id, file_name, storagemanager);
++                set_of_block_ids.addAll(goRightIds(storagemanager.get_data_block(file_name, leaf_id), leaf_id, file_name, storagemanager));
++            }
+ 
+-            /* Write your code here */
++            Set<Integer> final_answer_set = new HashSet<>();
++            Iterator<Integer> iterator = set_of_block_ids.iterator();
++            while (iterator.hasNext()) {
++                int element = iterator.next();
++                final_answer_set.addAll(getBlocksidsforoneleaf(file_name, element, storagemanager, datatype, key1, operator));
++            }
+ 
+-            return null;
++            // System.out.println("printning the elements of the fnal answer set ");
++            // for (Integer element : final_answer_set) {
++            //     System.out.println(element);
++            // }
++
++            return final_answer_set;
+         }
++    }
++
++
+ }
+\ No newline at end of file

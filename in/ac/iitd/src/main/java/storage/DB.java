@@ -21,7 +21,6 @@ public class DB {
     public int addFile(AbstractFile<? extends AbstractBlock> file) {
 
         files.add(file);
-        // System.out.println("here to aaya hoon");
         return files.size() - 1;
 
     }
@@ -56,12 +55,10 @@ public class DB {
     // returns the block id of leaf node where the key is present
     public <T> int search_index(int file_id, T key){
         if(file_id >= files.size()){
-            // System.out.println("haan yahna aaayaaa");
             return -1;
         }
         AbstractFile<? extends AbstractBlock> file = files.get(file_id);
         if(file instanceof BPlusTreeIndexFile){
-            // System.out.println("nhiiiiii yahna aaayaaa");
             return ((BPlusTreeIndexFile<T>) file).search(key);
         }
         return -1;
@@ -92,7 +89,6 @@ public class DB {
         }
         AbstractFile<? extends AbstractBlock> file = files.get(file_id);
         if(file instanceof BPlusTreeIndexFile){
-            // System.out.println(("idharrrrr"));
             return ((BPlusTreeIndexFile<T>) file).return_bfs();
         }
         return null;
